@@ -1,25 +1,49 @@
 import express from "express";
 import cors from "cors";
 import Database from "better-sqlite3";
-const db = Database('./db/data.db',{ verbose: console.log })
+const db = Database("./db/data.db", { verbose: console.log });
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 const port = 3456;
 
+const getQuotes = db.prepare(`
+SELECT * FROM Quotes
+`);
+
+const getQuotesById = db.prepare(`
+SELECT * FROM Quotes WHERE id=?
+`);
+
+
+const createSingleQuote = db.prepare(`
+INSERT INTO Quotes (quote, first_name, last_name, image, age) VALUES (?, ?, ?, ?, ?)
+`);
+
 app.get("/quotes", (req, res) => {
-  res.send(quotes);
+  const Quotes = getQuotes.all();
+  res.send(Quotes);
 });
 
 app.get("/quotes/:id", (req, res) => {
   const id = Number(req.params.id);
-  const match = quotes.find((quote) => quote.id === id);
+  const quote = getQuotesById.get(id);
 
-  res.send(match);
+  if (quote) {
+    res.send(quote);
+  } else {
+    res.status(404).send({ error: "Quote not found!" });
+  }
 });
 
 app.post("/quotes", (req, res) => {
+  const quote = req.body.quote
+  const first_name = req.body.firstName
+  const last_name = req.body.lastName
+  const image = req.body.image
+  const age = req.body.age
+
   let errors: string[] = [];
 
   if (typeof req.body.quote !== "string") {
@@ -42,65 +66,58 @@ app.post("/quotes", (req, res) => {
     errors.push("Age not found or not a number");
   }
 
-  if (errors.length === 0) {
-    const newQuotes = {
-      id: quotes[quotes.length - 1].id + 1,
-      quote: req.body.quote,
-      firstName: req.body.firstName,
-      lastName: req.body.lastName,
-      image: req.body.image,
-      age: req.body.age,
-    };
+  if (errors.length > 0) {
+   res.status(400).send({errors})
 
-    quotes.push(newQuotes);
-    res.send(newQuotes);
-  } else {
-    res.status(404).send({ errors });
+  }else{
+    const info = createSingleQuote.run(quote, first_name, last_name, image, age)
+    const Quote = getQuotesById.get(info.lastInsertRowid)
+    res.send(Quote)
   }
-});
+  });
 
-app.delete("/quotes/:id", (req, res) => {
-  const id = Number(req.params.id);
-  const indexToDelete = quotes.findIndex((quote) => quote.id === id);
+// app.delete("/quotes/:id", (req, res) => {
+//   const id = Number(req.params.id);
+//   const indexToDelete = quotes.findIndex((quote) => quote.id === id);
 
-  if (indexToDelete > -1) {
-    quotes = quotes.filter((quote) => quote.id !== id);
-    res.send("Quote delete successfully.");
-  } else {
-    res.status(404).send("Quote not found.");
-  }
-});
+//   if (indexToDelete > -1) {
+//     quotes = quotes.filter((quote) => quote.id !== id);
+//     res.send("Quote delete successfully.");
+//   } else {
+//     res.status(404).send("Quote not found.");
+//   }
+// });
 
-app.patch("/quotes/:id", (req, res) => {
-  let id = Number(req.params.id);
-  let match = quotes.find((quote) => quote.id === id);
+// app.patch("/quotes/:id", (req, res) => {
+//   let id = Number(req.params.id);
+//   let match = quotes.find((quote) => quote.id === id);
 
-  if (match) {
-    if (req.body.quote) {
-      match.quote = req.body.quote;
-    }
+//   if (match) {
+//     if (req.body.quote) {
+//       match.quote = req.body.quote;
+//     }
 
-    if (req.body.firstName) {
-      match.firstName = req.body.firstName;
-    }
+//     if (req.body.firstName) {
+//       match.firstName = req.body.firstName;
+//     }
 
-    if (req.body.lastName) {
-      match.lastName = req.body.lastName;
-    }
+//     if (req.body.lastName) {
+//       match.lastName = req.body.lastName;
+//     }
 
-    if (req.body.image) {
-      match.image = req.body.image;
-    }
+//     if (req.body.image) {
+//       match.image = req.body.image;
+//     }
 
-    if (req.body.age) {
-      match.age = req.body.age;
-    }
+//     if (req.body.age) {
+//       match.age = req.body.age;
+//     }
 
-    res.send(match);
-  } else {
-    res.status(404).send("Quote not found");
-  }
-});
+//     res.send(match);
+//   } else {
+//     res.status(404).send("Quote not found");
+//   }
+// });
 
 app.listen(port, () => {
   console.log(`Yeyy! http://localhost:${port}`);
